@@ -1,41 +1,36 @@
-import pg from 'pg';
+import { createClient } from '@libsql/client';
 
-const { Pool } = pg;
+// Turso(libSQL) 연결. 로컬은 .env, Render 는 대시보드 환경변수에서 주입됩니다.
+const url = process.env.TURSO_URL || process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_TOKEN || process.env.TURSO_AUTH_TOKEN;
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
+if (!url) {
   console.error(
-    '[db] DATABASE_URL 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.'
+    '[db] TURSO_URL 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.'
   );
 }
 
-// Render 의 외부 PostgreSQL 연결은 SSL 을 요구합니다.
-// 로컬(localhost) 연결에서는 SSL 을 끕니다.
-const isLocal =
-  !connectionString ||
-  connectionString.includes('localhost') ||
-  connectionString.includes('127.0.0.1');
+export const db = createClient({ url, authToken });
 
-export const pool = new Pool({
-  connectionString,
-  ssl: isLocal ? false : { rejectUnauthorized: false },
-});
-
-export async function query(text, params) {
-  return pool.query(text, params);
+// pg 시절과 동일한 사용감을 위해 { rows, rowCount } 형태로 감싸서 반환합니다.
+export async function query(sql, args = []) {
+  const rs = await db.execute({ sql, args });
+  return {
+    rows: rs.rows.map((r) => ({ ...r })),
+    rowCount: rs.rowsAffected,
+  };
 }
 
-// 앱 시작 시 notes 테이블이 없으면 생성합니다.
+// 앱 시작 시 notes 테이블이 없으면 생성합니다. (SQLite/libSQL 문법)
 export async function initDb() {
-  await pool.query(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS notes (
-      id          SERIAL PRIMARY KEY,
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
       title       TEXT NOT NULL DEFAULT '',
       content     TEXT NOT NULL DEFAULT '',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+      updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
     );
   `);
-  console.log('[db] notes 테이블 준비 완료');
+  console.log('[db] notes 테이블 준비 완료 (Turso/libSQL)');
 }

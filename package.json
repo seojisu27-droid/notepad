@@ -1,7 +1,7 @@
 {
   "name": "notepad",
   "version": "1.0.0",
-  "description": "에버노트 유사 개인 메모장 (Express + React + PostgreSQL)",
+  "description": "에버노트 유사 개인 메모장 (Express + React + Turso/libSQL)",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -14,7 +14,8 @@
     "postinstall": "echo skip"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "pg": "^8.12.0"
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
   }
 }

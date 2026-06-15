@@ -3,12 +3,14 @@ import { query } from '../db.js';
 
 const router = Router();
 
+const NOW = "strftime('%Y-%m-%dT%H:%M:%SZ','now')";
+
 // 목록 조회 (최근 수정순). 본문은 미리보기용으로 짧게 잘라서 반환.
 router.get('/', async (req, res, next) => {
   try {
     const { rows } = await query(
       `SELECT id, title,
-              LEFT(content, 200) AS preview,
+              substr(content, 1, 200) AS preview,
               created_at, updated_at
          FROM notes
         ORDER BY updated_at DESC`
@@ -22,8 +24,8 @@ router.get('/', async (req, res, next) => {
 // 단건 조회
 router.get('/:id', async (req, res, next) => {
   try {
-    const { rows } = await query('SELECT * FROM notes WHERE id = $1', [
-      req.params.id,
+    const { rows } = await query('SELECT * FROM notes WHERE id = ?', [
+      Number(req.params.id),
     ]);
     if (rows.length === 0) {
       return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
@@ -41,7 +43,7 @@ router.post('/', async (req, res, next) => {
     const content = (req.body?.content ?? '').toString();
     const { rows } = await query(
       `INSERT INTO notes (title, content)
-       VALUES ($1, $2)
+       VALUES (?, ?)
        RETURNING *`,
       [title, content]
     );
@@ -58,12 +60,12 @@ router.put('/:id', async (req, res, next) => {
     const content = (req.body?.content ?? '').toString();
     const { rows } = await query(
       `UPDATE notes
-          SET title = $1,
-              content = $2,
-              updated_at = now()
-        WHERE id = $3
+          SET title = ?,
+              content = ?,
+              updated_at = ${NOW}
+        WHERE id = ?
       RETURNING *`,
-      [title, content, req.params.id]
+      [title, content, Number(req.params.id)]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
@@ -77,8 +79,8 @@ router.put('/:id', async (req, res, next) => {
 // 삭제
 router.delete('/:id', async (req, res, next) => {
   try {
-    const { rowCount } = await query('DELETE FROM notes WHERE id = $1', [
-      req.params.id,
+    const { rowCount } = await query('DELETE FROM notes WHERE id = ?', [
+      Number(req.params.id),
     ]);
     if (rowCount === 0) {
       return res.status(404).json({ error: '노트를 찾을 수 없습니다.' });
